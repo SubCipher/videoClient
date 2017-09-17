@@ -1,10 +1,9 @@
-![broadcast-yourself](https://user-images.githubusercontent.com/12479502/28449979-49fb02f0-6db2-11e7-80f5-3de5611b73fd.jpg)
-# ios-nd-swift-3-Final 
-# Video Client
+# ios-nd-swift-3-virtualTourist
+# Virtual Tourist
 
-Multimedia app for creating, viewing and posting your own videos to YouTube:
-Features include Core Data for persistent state, AVFoundation for media/playback and native networking utilities.
+GeoLocation app for creating, storing and viewing flickr images based on geographic locations designated by map coordinates.
+
+Features include Core Data for persistent state, MapKit for geographic positioning and GCP and native networking utilities for performance optimization.
 
 Requirements: 
-YouTube Account & Internet access for posting videos
-
+Internet access/ iOS v 10.3 +
