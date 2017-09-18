@@ -24,8 +24,8 @@ class TourSessionTasks: NSObject {
         let downloadQueue = DispatchQueue(label: "downloadQueue", qos: .background)
         //perform session tasks on background Queue to eliminate loading time for images 
        
-        
-         downloadQueue.asyncAfter(deadline: .now() + additionalTime) {
+
+        downloadQueue.asyncAfter(deadline: .now() + additionalTime) {
                         
             let task = self.session.dataTask(with: request) { (data,response, error ) in
                 

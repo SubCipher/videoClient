@@ -38,7 +38,7 @@ class MapViewController: UIViewController, MKMapViewDelegate {
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        prepMapView()
+        tourActivityIndicatorView.stopAnimating()
         checkReachability()
         
         longPressGestureOutlet.isEnabled = !tourActivityIndicatorView.isAnimating
@@ -54,32 +54,24 @@ class MapViewController: UIViewController, MKMapViewDelegate {
         if segue.identifier == "coreDataCollectionViewController" {
             let  destinationVC = segue.destination as! CoreDataCollectionViewController
             
-            let tourFetchResult = NSFetchRequest<NSFetchRequestResult>(entityName: "Photo")
-            tourFetchResult.sortDescriptors = [NSSortDescriptor(key: "text", ascending: true),
-                                               NSSortDescriptor(key: "creationDate", ascending: false)]
+            let tourFetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "Photo")
+            tourFetchRequest.sortDescriptors = [NSSortDescriptor(key: "text", ascending: true),
+                                                NSSortDescriptor(key: "creationDate", ascending: false)]
             
-            tourFetchResult.predicate = NSPredicate(format: "text = %@", ((self.searchKey))! )
+            tourFetchRequest.predicate = NSPredicate(format: "text = %@", ((self.searchKey))! )
             
-            self.fetchedResultsController = NSFetchedResultsController(fetchRequest: tourFetchResult, managedObjectContext: (self.stack?.context)!, sectionNameKeyPath: nil, cacheName: nil)
+            self.fetchedResultsController = NSFetchedResultsController(fetchRequest: tourFetchRequest, managedObjectContext: (self.stack?.context)!, sectionNameKeyPath: nil, cacheName: nil)
             
-           destinationVC.fetchedResultsController = self.fetchedResultsController!
+            destinationVC.fetchedResultsController = self.fetchedResultsController!
             destinationVC.searchKey  = self.searchKey!
         }
     }
     
     
-    func prepMapView(){
-        
-        tourActivityIndicatorView.stopAnimating()
-        tourActivityIndicatorView.isHidden = true
-    }
-    
     @IBAction func addGesturePoint(_ sender: UILongPressGestureRecognizer) {
         
         if sender.state ==  .began {
             
-            checkReachability()
-
             tourDataModel.activityViewManager(tourActivityIndicatorView)
             longPressGestureOutlet.isEnabled = !tourActivityIndicatorView.isAnimating
             
@@ -98,7 +90,8 @@ class MapViewController: UIViewController, MKMapViewDelegate {
                     
                     actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
                     self?.present(actionSheet,animated: true, completion: nil)
-
+                    self?.tourDataModel.activityViewManager((self?.tourActivityIndicatorView)!)
+                    
                     return
                 }
                 annotation.coordinate = (siteCoordinates)
@@ -111,7 +104,7 @@ class MapViewController: UIViewController, MKMapViewDelegate {
                 self?.apiMethods.geoSearch(siteCoordinates, completionHandlerForGeoSearch: {(success, error) in
                     
                     if success == true {
-                       
+                        
                         DispatchQueue.main.async {
                             self?.tourDataModel.activityViewManager((self?.tourActivityIndicatorView)!)
                             self?.longPressGestureOutlet.isEnabled = !(self?.tourActivityIndicatorView.isAnimating)!
@@ -122,7 +115,7 @@ class MapViewController: UIViewController, MKMapViewDelegate {
                         
                         actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
                         self?.present(actionSheet,animated: true, completion: nil)
-                    
+                        
                         
                         self?.tourDataModel.activityViewManager((self?.tourActivityIndicatorView)!)
                         self?.longPressGestureOutlet.isEnabled = !(self?.tourActivityIndicatorView.isAnimating)!
@@ -157,7 +150,7 @@ class MapViewController: UIViewController, MKMapViewDelegate {
             completionHandlerForGeoCode(true,(""))
         }
     }
-        
+    
     //restore saved pin from coreData
     func restoredPins(){
         
@@ -236,11 +229,11 @@ extension MapViewController{
             
             //MARK: failed connection alert
             let actionSheet = UIAlertController(title: "NETWORK ERROR", message: "Your Internet Connection Cannot Be Detected", preferredStyle: .actionSheet)
-           
+            
             let actOnButton = UIAlertAction(title: "Cancel", style: .default, handler: { (action) -> Void in
                 self.tourActivityIndicatorView.stopAnimating()
                 self.longPressGestureOutlet.isEnabled = !self.tourActivityIndicatorView.isAnimating
-               
+                
             })
             actionSheet.addAction(actOnButton)
             //actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))

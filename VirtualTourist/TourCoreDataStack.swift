@@ -47,7 +47,7 @@ struct TourCoreDataStack {
         
         persistingContext = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
         persistingContext.persistentStoreCoordinator = coordinator
-        persistingContext.mergePolicy = NSMergePolicy.mergeByPropertyObjectTrump
+        persistingContext.mergePolicy = NSMergePolicy.mergeByPropertyStoreTrump
         
         // create a context and add connect it to the coordinator
         context = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)

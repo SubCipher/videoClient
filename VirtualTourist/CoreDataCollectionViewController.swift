@@ -35,7 +35,7 @@ class CoreDataCollectionViewController: UIViewController, UIGestureRecognizerDel
     
     
     var cellPlaceHolder = UIImage(named: "placeholder")
-    private let refreshControl = UIRefreshControl()
+    
     
     @IBOutlet weak var newSelectionOutlet: UIButton!
     @IBOutlet weak var flowViewLayout: UICollectionViewFlowLayout!
@@ -44,18 +44,14 @@ class CoreDataCollectionViewController: UIViewController, UIGestureRecognizerDel
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        coreDataCollectionVCoutlet.refreshControl = refreshControl
+        newSelectionOutlet.isEnabled = false
         coreDataCollectionVCoutlet.delegate = self
         coreDataCollectionVCoutlet.dataSource = self
-        
-           }
+    }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        
-        //scroll update for view controller
-        refreshControl.addTarget(self, action: #selector(refreshTourData(_:)), for: .valueChanged)
+        self.newSelectionOutlet.isEnabled  = fetchedResultsController?.fetchedObjects?.count != nil
         
         //fetch photos here to eliminate time loading and displaying
         fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "Photo")
@@ -76,20 +72,12 @@ class CoreDataCollectionViewController: UIViewController, UIGestureRecognizerDel
             for pin in pinSearchResults as! [Pin] {   self.coordinates = CLLocationCoordinate2DMake(pin.latitude, pin.longitude) }  }
             
         catch {  print("Could Not Get Coordinates",error)  }  }
-    
-    
-    @objc private func refreshTourData(_ sender: Any) {
-        
-        DispatchQueue.main.async {  self.coreDataCollectionVCoutlet.reloadData()
-            self.refreshControl.endRefreshing()
-        }
-    }
+     
     
     internal override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         
         isDeviceVertical = traitCollection.verticalSizeClass == .compact ? false : true
-        
         
         let space: CGFloat = isDeviceVertical == true ? 2 : 5
         flowViewLayout.minimumInteritemSpacing = 0
@@ -108,6 +96,7 @@ class CoreDataCollectionViewController: UIViewController, UIGestureRecognizerDel
         flowViewLayout.itemSize = CGSize(width: dimensionW,height: dimensionH)
     }
     
+    
     //used to get approx coordinates if site is removed before saved to coredata
     func getLatANDLongFromNetwork(_ coordString: String)->CLLocationCoordinate2D {
         
@@ -121,6 +110,7 @@ class CoreDataCollectionViewController: UIViewController, UIGestureRecognizerDel
         
         let geoConvertedCoors = CLLocationCoordinate2DMake(geoCoorLat, geoCoorLong);  return geoConvertedCoors }
     
+    
     func filterSearchKey(_ targetStr: String)->[String] {
         
         //filter site coordinates,from API: used for NEW images displayed direct from network
@@ -130,42 +120,50 @@ class CoreDataCollectionViewController: UIViewController, UIGestureRecognizerDel
         let charToMatch = Character("+")
         var geoString = [String]()
         
-        
         for i in targetStr.characters {
             
             if charToMatch == i {  matchArray.append(indexCount)  }; indexCount += 1  }
         
-        let charToMatchIndex = matchArray.max()
-        let start = targetResponse.characters.startIndex
-        let filterRange = targetStr.characters.index(start, offsetBy: charToMatchIndex!)
-        let range = (targetResponse.startIndex...filterRange)
+            let charToMatchIndex = matchArray.max()
+            let start = targetResponse.characters.startIndex
+            let filterRange = targetStr.characters.index(start, offsetBy: charToMatchIndex!)
+            let range = (targetResponse.startIndex...filterRange)
         
-        targetResponse.characters.removeSubrange(range)
+            targetResponse.characters.removeSubrange(range)
         
-        if targetResponse.characters.contains(">"){
-            targetResponse.characters.removeSubrange(targetResponse.characters.index(of: ">")!...targetResponse.characters.index(before: targetResponse.characters.endIndex))
-            //split flitered String into lat and long for coordinate conversion
-            geoString = targetResponse.components(separatedBy: ",")
-        }
+            if targetResponse.characters.contains(">"){
+                targetResponse.characters.removeSubrange(targetResponse.characters.index(of: ">")!...targetResponse.characters.index(before: targetResponse.characters.endIndex))
+                //split flitered String into lat and long for coordinate conversion
+                geoString = targetResponse.components(separatedBy: ",")
+            }
         return geoString
-    }
+        }
+    
     
     //Mark:- Delete all objects in current context
     func deletePhotoInFetch(_ completionHanderlForPhotoDelete: @escaping (_ success:Bool,_ error:String)-> Void ) {
         
-        let delFetchReq = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+       
+        let search_req = NSFetchRequest<NSFetchRequestResult>(entityName: "Photo")
+        search_req.sortDescriptors = [NSSortDescriptor(key: "text", ascending: true)]
         
-        //batch delete coredata photos
-        fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest, managedObjectContext: (stack?.context)!, sectionNameKeyPath: nil, cacheName: nil)
+        search_req.predicate = NSPredicate(format: "text = %@", self.searchKey)
+        
+        self.fetchedResultsController = NSFetchedResultsController(fetchRequest: search_req, managedObjectContext: (self.stack?.context)!, sectionNameKeyPath: nil, cacheName: nil)
+        
+        let delFetchReq = NSBatchDeleteRequest(fetchRequest: search_req)
+        
         do {
+            //batch delete coredata photos and reset array
+            TourDataModel.sharedInstance().arrayOfURLstrings.removeAll()
             try self.stack?.context.execute(delFetchReq)
-            performCollectionSearch()
-            try self.stack?.context.save()
             
+            try self.stack?.context.save()
+            performCollectionSearch()
+            coreDataCollectionVCoutlet.reloadData()
             completionHanderlForPhotoDelete(true,"")
             
         } catch {  completionHanderlForPhotoDelete(false,"\(error)")   } }
-    
     
     @IBAction func newSelectionAction(_ sender: UIButton) {
         newSelectionOutlet.isEnabled = false
@@ -173,20 +171,20 @@ class CoreDataCollectionViewController: UIViewController, UIGestureRecognizerDel
         self.deletePhotoInFetch({ (success, error) in
             guard success == true else {  return }
             self.tourReloaded()
-            
         })
     }
 }
+
+
 //MARK:- CollectionView Extension
 extension CoreDataCollectionViewController: UICollectionViewDataSource {
     
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         var itemsInSection = 0
-        if (self.fetchedResultsController?.fetchedObjects?.count)! == 0 { itemsInSection = TourDataModel.sharedInstance().arrayOfURLstrings.count }
+        if (self.fetchedResultsController?.fetchedObjects?.count)! == 0 {
+            itemsInSection = TourDataModel.sharedInstance().arrayOfURLstrings.count }
             
-        else {
-            TourDataModel.sharedInstance().arrayOfURLstrings.removeAll()
-            itemsInSection = (self.fetchedResultsController?.fetchedObjects?.count)! }
+        else {  itemsInSection = (self.fetchedResultsController?.fetchedObjects?.count)! }
         
     return itemsInSection
     }
@@ -198,9 +196,10 @@ extension CoreDataCollectionViewController: UICollectionViewDataSource {
         //Display placeholder on slow connections
         cell.tourImageForCell.image = cellPlaceHolder
         
-        /* image downloads are initiated in the mapViewConroller, this helps eliminate load time on fast connections and only shows the placeholder on slow connections 
+        /* image downloads are initiated in the mapViewConroller, reducing time to display placeholder, on fast connections, but still show on slow connections.
          see:
-         Last entry for project suggestions
+         Rubric: Last entry for "Suggestions to Make Your Project Stand Out!"
+         
          https://review.udacity.com/#!/rubrics/22/view
          
          https://discussions.udacity.com/t/background-queue-and-space-holders-images/357922/2
@@ -221,7 +220,7 @@ extension CoreDataCollectionViewController: UICollectionViewDataSource {
                 
                 DispatchQueue.main.async {
                     //convert data and assign resulting UIImage to the cell
-                    cell.tourImageForCell.image = self.cellPlaceHolder
+                    //cell.tourImageForCell.image = self.cellPlaceHolder
                     cell.tourImageForCell.image =  UIImage(data: imageData)
                     cell.cellTextForImage.text = self.searchKey
                     cell.cellActivityIndicatorOutlet.stopAnimating()
@@ -240,12 +239,13 @@ extension CoreDataCollectionViewController: UICollectionViewDataSource {
                     cell.cellTextForImage.text = "image not available"
                     return cell
                 }
+                
                 DispatchQueue.main.async {
-
-                cell.cellActivityIndicatorOutlet.stopAnimating()
+                //cell.setImageForCell(self.cellPlaceHolder)
                 cell.setImageForCell(tourImage)
                 cell.cellTextForImage.text = photo.text
                 cell.cellActivityIndicatorOutlet.stopAnimating()
+                    
                 }
             }
         }
@@ -260,11 +260,18 @@ extension CoreDataCollectionViewController: UICollectionViewDataSource {
         //NOTE the cellImage/ item at indexPath is deleted via delegate in the extension once the coredata reference is removed
 
             if (self.fetchedResultsController?.fetchedObjects?.count)! > 0 {
-                
-                if let context = self.fetchedResultsController?.managedObjectContext, let tourImage = self.fetchedResultsController?.object(at:
-                    indexPath) as? Photo {
-                    context.delete(tourImage)
-                    stack?.save()
+               
+                if self.fetchedResultsController?.object(at: indexPath) != nil {
+                    
+                    if let context = self.fetchedResultsController?.managedObjectContext, let tourImage = self.fetchedResultsController?.object(at: indexPath) as? Photo {
+                        
+                        context.delete(tourImage)
+                        stack?.save()
+                        
+                        if self.fetchedResultsController?.fetchedObjects?.count == 1 {
+                            TourDataModel.sharedInstance().arrayOfURLstrings.removeAll()
+                        }
+                    }
                 }
             }
         }
@@ -320,6 +327,7 @@ extension CoreDataCollectionViewController: NSFetchedResultsControllerDelegate {
         }
     }
     
+    
     func tourReloaded(){
         TourDataModel.sharedInstance().compareGeoString = searchKey
         
@@ -330,6 +338,7 @@ extension CoreDataCollectionViewController: NSFetchedResultsControllerDelegate {
             if success == true {
                 
                 DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + .seconds(0)) {
+                    
                     self.performCollectionSearch()
                     self.coreDataCollectionVCoutlet?.reloadData()
                     self.newSelectionOutlet.isEnabled = true
@@ -347,7 +356,8 @@ extension CoreDataCollectionViewController: NSFetchedResultsControllerDelegate {
     func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
         if self.fetchedResultsController?.fetchedObjects?.count == 0 {
             tourReloaded()
-            //self.newSelectionOutlet.isEnabled = false
+            
+            self.newSelectionOutlet.isEnabled = false
         }
     }
 }

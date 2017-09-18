@@ -20,17 +20,17 @@ import MapKit
     //var imageArrayCount = 0
     var arrayOfURLstrings = [String]()
 
-    //helper func to start/stop/hide activityIndicatorView based on its current state in the VC
+    //helper func to start/stop/ activityIndicatorView based on its current state in the VC
     func activityViewManager(_ activtyIndicator: UIActivityIndicatorView){
         
         let activityState = activtyIndicator.isAnimating
         
         if activityState == true {
             activtyIndicator.stopAnimating()
-            activtyIndicator.isHidden = activityState
+
         } else {
             activtyIndicator.startAnimating()
-            activtyIndicator.isHidden = activityState
+            
         }
     }
     
